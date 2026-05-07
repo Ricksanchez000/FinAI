@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip --version)",
+      "Skill(claude-api)",
+      "Skill(claude-api:*)",
+      "Bash(python -m pytest -x)",
+      "Bash(python -m pytest)",
+      "Bash(python -m finai.cli run --source mock --trade-date 2026-05-06)",
+      "Bash(FINAI_LLM_ENABLED=false finai run --source akshare)",
+      "Bash(FINAI_LLM_ENABLED=false python -m finai.cli run --source akshare)",
+      "Bash(python -c ' *)",
+      "Bash(FINAI_LLM_ENABLED=false python -m finai.cli serve --port 8000)",
+      "Bash(curl -s http://127.0.0.1:8000/healthz)",
+      "Bash(curl -s http://127.0.0.1:8000/reports)",
+      "Bash(python -c \"import sys, json; print\\(json.dumps\\(json.load\\(sys.stdin\\), indent=2, ensure_ascii=False\\)\\)\")"
+    ]
+  }
+}

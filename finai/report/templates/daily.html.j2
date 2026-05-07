@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>FinAI · 今日分析 {{ trade_date }}</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<style>
+  body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+         margin: 0; background: #f5f6f8; color: #1f2733; }
+  header { background: #14233c; color: #fff; padding: 18px 32px; }
+  header h1 { margin: 0; font-size: 20px; font-weight: 600; }
+  header .meta { color: #9fb0c8; font-size: 13px; margin-top: 4px; }
+  main { max-width: 1180px; margin: 24px auto; padding: 0 24px; }
+  section { background: #fff; border-radius: 8px; padding: 18px 22px; margin-bottom: 18px;
+            box-shadow: 0 1px 2px rgba(20, 35, 60, 0.05); }
+  section h2 { margin: 0 0 12px; font-size: 16px; color: #14233c; }
+  .grid { display: grid; gap: 16px; }
+  .grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .grid.cols-2 { grid-template-columns: 1.5fr 1fr; }
+  .kpi { background: #f8fafc; border: 1px solid #e3e8ef; border-radius: 6px; padding: 12px; }
+  .kpi .label { font-size: 12px; color: #64748b; }
+  .kpi .value { font-size: 22px; font-weight: 600; margin-top: 4px; }
+  .kpi .value.up { color: #d6453a; }
+  .kpi .value.down { color: #1e9c52; }
+  .narrative p { margin: 0 0 10px; line-height: 1.7; }
+  .narrative .label { font-weight: 600; color: #14233c; margin-right: 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 8px 10px; border-bottom: 1px solid #eef1f5; text-align: left; }
+  th { color: #64748b; font-weight: 500; background: #f8fafc; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.up { color: #d6453a; }
+  td.down { color: #1e9c52; }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px;
+          background: #eef2ff; color: #4338ca; margin-right: 4px; }
+  .badge-fallback { background: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 4px;
+                    font-size: 12px; margin-left: 12px; }
+  .chart { width: 100%; height: 320px; }
+  details { margin-top: 8px; }
+  summary { cursor: pointer; color: #4338ca; }
+  .similar a { color: #4338ca; text-decoration: none; margin-right: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>FinAI · 今日分析 · {{ trade_date }}
+    {% if fallback_used %}<span class="badge-fallback">部分内容由模板降级生成</span>{% endif %}
+  </h1>
+  <div class="meta">生成于 {{ generated_at }} UTC · 数据源：{{ data_source if data_source else '本地快照' }}</div>
+</header>
+<main>
+
+<section>
+  <h2>市场总览</h2>
+  <div class="grid cols-3">
+    {% for idx in market.indices %}
+    <div class="kpi">
+      <div class="label">{{ idx.name }}（{{ idx.code }}）</div>
+      <div class="value {% if idx.pct_change >= 0 %}up{% else %}down{% endif %}">
+        {{ '%.2f' % idx.close }} <small>{{ '%+.2f' % idx.pct_change }}%</small>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="grid cols-3" style="margin-top: 14px;">
+    <div class="kpi">
+      <div class="label">涨跌家数</div>
+      <div class="value"><span class="up">{{ market.breadth.advance }}</span> / <span class="down">{{ market.breadth.decline }}</span></div>
+    </div>
+    <div class="kpi">
+      <div class="label">涨停 / 跌停 / 炸板</div>
+      <div class="value">
+        <span class="up">{{ market.limit_up }}</span> /
+        <span class="down">{{ market.limit_down }}</span> /
+        {{ market.limit_up_broken }}
+      </div>
+    </div>
+    <div class="kpi">
+      <div class="label">两市成交（亿）</div>
+      <div class="value">{{ '%.0f' % market.total_amount_yi }}</div>
+    </div>
+  </div>
+</section>
+
+<section class="narrative">
+  <h2>AI 日报</h2>
+  <p><span class="label">市场总览</span>{{ narrative.overview }}</p>
+  <p><span class="label">资金面</span>{{ narrative.capital }}</p>
+  <p><span class="label">板块轮动</span>{{ narrative.rotation }}</p>
+  <p><span class="label">风险提示</span>{{ narrative.risk }}</p>
+</section>
+
+<section>
+  <h2>板块强度</h2>
+  <div id="sectorChart" class="chart"></div>
+</section>
+
+<section>
+  <h2>异动归因（Top {{ attributions|length }}）</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>代码</th><th>名称</th><th>板块</th>
+        <th class="num">涨跌幅</th><th class="num">换手率</th><th class="num">成交额(亿)</th>
+        <th>归因</th><th>维度</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for row in attributions %}
+      {% set anom = anomalies[loop.index0] if anomalies|length > loop.index0 else None %}
+      <tr>
+        <td>{{ row.code }}</td>
+        <td>{{ anom.name if anom else '-' }}</td>
+        <td>{{ anom.sector if anom else '-' }}</td>
+        <td class="num {% if anom and anom.pct_change >= 0 %}up{% else %}down{% endif %}">
+          {{ '%+.2f' % anom.pct_change if anom else '-' }}%
+        </td>
+        <td class="num">{{ '%.2f' % anom.turnover_rate if anom else '-' }}</td>
+        <td class="num">{{ '%.2f' % (anom.amount / 1e8) if anom else '-' }}</td>
+        <td>
+          {{ row.summary }}
+          {% if row.cited_news_urls %}
+          <details><summary>引用新闻 ({{ row.cited_news_urls|length }})</summary>
+            <ul>{% for u in row.cited_news_urls %}<li><a href="{{ u }}" target="_blank">{{ u }}</a></li>{% endfor %}</ul>
+          </details>
+          {% endif %}
+        </td>
+        <td>{% for d in row.dimensions %}<span class="pill">{{ d }}</span>{% endfor %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="similar">
+  <h2>历史相似日</h2>
+  {% if similar_days %}
+    {% for d in similar_days %}
+      <a href="#" title="相似度 {{ d.similarity }}">{{ d.trade_date }} ({{ '%.3f' % d.similarity }})</a>
+    {% endfor %}
+  {% else %}
+    <em>历史数据不足，至少需要 60 个交易日的板块行情才可生效。</em>
+  {% endif %}
+</section>
+
+</main>
+
+<script>
+  const sectorData = {{ sectors.heatmap|tojson }};
+  const chart = echarts.init(document.getElementById('sectorChart'));
+  chart.setOption({
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    grid: { left: 90, right: 24, top: 10, bottom: 24 },
+    xAxis: { type: 'value', axisLabel: { formatter: '{value}%' } },
+    yAxis: {
+      type: 'category',
+      data: sectorData.map(d => d.sector).reverse(),
+      axisLabel: { fontSize: 12 }
+    },
+    series: [{
+      type: 'bar',
+      data: sectorData.map(d => ({
+        value: Number(d.pct_change.toFixed(2)),
+        itemStyle: { color: d.pct_change >= 0 ? '#d6453a' : '#1e9c52' }
+      })).reverse(),
+      label: { show: true, position: 'right', formatter: '{c}%' }
+    }]
+  });
+  window.addEventListener('resize', () => chart.resize());
+</script>
+</body>
+</html>
