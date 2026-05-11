@@ -2,18 +2,19 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-import pandas as pd
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from finai.config import settings
-from finai.data.base import MarketSnapshot
-from finai.llm.attribution import AttributionResult, attribute_anomalies
-from finai.llm.narrative import MarketNarrative, build_market_narrative
+from finai.data.base import MacroSnapshot, MarketSnapshot, RegionalSnapshot
+from finai.llm.attribution import attribute_anomalies
+from finai.llm.narrative import build_market_narrative
 from finai.signals import (
+    compute_cross_market_board,
+    compute_macro_view,
     compute_market_overview,
     compute_sector_rotation,
     detect_anomalies,
@@ -27,19 +28,26 @@ TEMPLATE_DIR = Path(__file__).parent / "templates"
 class DailyReportPayload:
     trade_date: date
     generated_at: datetime
-    market: dict          # MarketOverview
-    sectors: dict         # SectorView
-    anomalies: list[dict]
-    attributions: list[dict]
-    narrative: dict       # MarketNarrative
+    market: dict                      # A-share overview
+    sectors: dict                     # A-share sectors
+    anomalies: list[dict]             # A-share anomalies
+    attributions: list[dict]          # LLM attribution per anomaly
+    narrative: dict                   # 4-paragraph daily brief
     similar_days: list[dict]
     fallback_used: bool
+    macro: dict = field(default_factory=dict)              # global indices, fx, yields, commodities, crypto
+    cross_market: dict = field(default_factory=dict)        # us / hk top movers
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), ensure_ascii=False, default=str, indent=2)
 
 
-def build_daily_report(snapshot: MarketSnapshot) -> DailyReportPayload:
+def build_daily_report(
+    snapshot: MarketSnapshot,
+    *,
+    regional: dict[str, RegionalSnapshot] | None = None,
+    macro: MacroSnapshot | None = None,
+) -> DailyReportPayload:
     market = compute_market_overview(
         snapshot.indices, snapshot.stocks, snapshot.capital, snapshot.trade_date
     )
@@ -53,6 +61,23 @@ def build_daily_report(snapshot: MarketSnapshot) -> DailyReportPayload:
         top_k=settings.similarity_top_k,
     )
 
+    macro_view = {}
+    if macro is not None:
+        macro_view = asdict(compute_macro_view(macro))
+        macro_view["trade_date"] = macro.trade_date.isoformat()
+
+    cross = {}
+    for mkt, snap in (regional or {}).items():
+        board = compute_cross_market_board(snap)
+        if not board.gainers and not board.losers:
+            continue  # skip empty boards (region fetch failed)
+        cross[mkt] = {
+            "market": board.market,
+            "trade_date": board.trade_date.isoformat(),
+            "gainers": board.gainers,
+            "losers": board.losers,
+        }
+
     return DailyReportPayload(
         trade_date=snapshot.trade_date,
         generated_at=datetime.now(timezone.utc),
@@ -63,6 +88,8 @@ def build_daily_report(snapshot: MarketSnapshot) -> DailyReportPayload:
         narrative=narrative.model_dump(),
         similar_days=[d.as_dict() for d in similar],
         fallback_used=attribution.fallback_used,
+        macro=macro_view,
+        cross_market=cross,
     )
 
 

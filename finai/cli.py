@@ -33,9 +33,14 @@ def cmd_init_db() -> None:
 @cli.command("run")
 @click.option("--trade-date", "trade_date_s", default=None, help="YYYY-MM-DD")
 @click.option("--source", default=None, help="akshare | mock")
-def cmd_run(trade_date_s: str | None, source: str | None) -> None:
+@click.option("--regions", default=None,
+              help="csv: cn-a,us,hk,global. Overrides FINAI_FETCH_REGIONS. "
+                   "us+hk add ~5–8 min each.")
+def cmd_run(trade_date_s: str | None, source: str | None, regions: str | None) -> None:
     """Run the full pipeline (fetch → signals → LLM → render)."""
     from finai.pipeline.etl import run_full_pipeline
+    if regions is not None:
+        settings.fetch_regions = regions
     td = date.fromisoformat(trade_date_s) if trade_date_s else None
     path = run_full_pipeline(trade_date=td, source_name=source)
     click.echo(f"report written: {path}")

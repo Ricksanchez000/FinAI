@@ -28,6 +28,7 @@ class IndexQuote(Base):
     __tablename__ = "index_quote"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     trade_date: Mapped[date] = mapped_column(Date, index=True)
+    market: Mapped[str] = mapped_column(String(16), index=True, default="cn-a")  # cn-a / us / hk / global
     code: Mapped[str] = mapped_column(String(16), index=True)
     name: Mapped[str] = mapped_column(String(64))
     open: Mapped[float] = mapped_column(Float)
@@ -37,14 +38,16 @@ class IndexQuote(Base):
     volume: Mapped[float] = mapped_column(Float)
     amount: Mapped[float] = mapped_column(Float)
     pct_change: Mapped[float] = mapped_column(Float)
+    as_of_ts: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
-    __table_args__ = (UniqueConstraint("trade_date", "code", name="uq_index_quote"),)
+    __table_args__ = (UniqueConstraint("trade_date", "market", "code", name="uq_index_quote"),)
 
 
 class StockQuote(Base):
     __tablename__ = "stock_quote"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     trade_date: Mapped[date] = mapped_column(Date, index=True)
+    market: Mapped[str] = mapped_column(String(16), index=True, default="cn-a")
     code: Mapped[str] = mapped_column(String(16), index=True)
     name: Mapped[str] = mapped_column(String(64))
     open: Mapped[float] = mapped_column(Float)
@@ -59,7 +62,28 @@ class StockQuote(Base):
     market_cap: Mapped[float] = mapped_column(Float, default=0.0)
     sector: Mapped[str] = mapped_column(String(64), default="")
 
-    __table_args__ = (UniqueConstraint("trade_date", "code", name="uq_stock_quote"),)
+    __table_args__ = (UniqueConstraint("trade_date", "market", "code", name="uq_stock_quote"),)
+
+
+class MacroQuote(Base):
+    """Non-equity instruments: FX, yields, commodities, crypto.
+
+    Each row carries its own as_of_ts because global markets close at different
+    times — the report renders the timestamp alongside the value rather than
+    pretending they're synchronized.
+    """
+    __tablename__ = "macro_quote"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    trade_date: Mapped[date] = mapped_column(Date, index=True)
+    asset_class: Mapped[str] = mapped_column(String(16), index=True)  # fx / yield / commodity / crypto / index_global
+    code: Mapped[str] = mapped_column(String(32))
+    name: Mapped[str] = mapped_column(String(64))
+    value: Mapped[float] = mapped_column(Float)
+    pct_change: Mapped[float] = mapped_column(Float, default=0.0)
+    as_of_ts: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    extra_json: Mapped[str] = mapped_column(Text, default="")
+
+    __table_args__ = (UniqueConstraint("trade_date", "asset_class", "code", name="uq_macro_quote"),)
 
 
 class SectorQuote(Base):

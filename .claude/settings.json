@@ -13,7 +13,13 @@
       "Bash(FINAI_LLM_ENABLED=false python -m finai.cli serve --port 8000)",
       "Bash(curl -s http://127.0.0.1:8000/healthz)",
       "Bash(curl -s http://127.0.0.1:8000/reports)",
-      "Bash(python -c \"import sys, json; print\\(json.dumps\\(json.load\\(sys.stdin\\), indent=2, ensure_ascii=False\\)\\)\")"
+      "Bash(python -c \"import sys, json; print\\(json.dumps\\(json.load\\(sys.stdin\\), indent=2, ensure_ascii=False\\)\\)\")",
+      "Bash(timeout 60 python -c ' *)",
+      "Bash(pkill -f \"stock_us_spot_em\")",
+      "Bash(taskkill //F //IM python.exe //T)",
+      "Bash(FINAI_LLM_ENABLED=false python -m finai.cli run --source akshare --regions \"cn-a,global\")",
+      "Bash(FINAI_LLM_ENABLED=false python -m finai.cli run --source mock --regions \"cn-a,global\")",
+      "Bash(FINAI_LLM_ENABLED=false python -m finai.cli run --source akshare --regions \"cn-a,us,hk,global\")"
     ]
   }
 }

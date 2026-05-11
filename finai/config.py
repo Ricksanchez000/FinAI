@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     report_dir: Path = Path("./reports")
 
     data_source: Literal["akshare", "mock"] = "akshare"
+    fetch_regions: str = "cn-a,global"  # csv: cn-a / us / hk / global. us+hk add 5–8 min each.
+    us_top_n: int = 200                  # cap US universe to top-N by amount to keep ETL bounded
+    hk_top_n: int = 200
 
     llm_enabled: bool = True
     llm_model: str = "claude-opus-4-7"

@@ -10,47 +10,144 @@
   header { background: #14233c; color: #fff; padding: 18px 32px; }
   header h1 { margin: 0; font-size: 20px; font-weight: 600; }
   header .meta { color: #9fb0c8; font-size: 13px; margin-top: 4px; }
-  main { max-width: 1180px; margin: 24px auto; padding: 0 24px; }
+  main { max-width: 1280px; margin: 24px auto; padding: 0 24px; }
   section { background: #fff; border-radius: 8px; padding: 18px 22px; margin-bottom: 18px;
             box-shadow: 0 1px 2px rgba(20, 35, 60, 0.05); }
-  section h2 { margin: 0 0 12px; font-size: 16px; color: #14233c; }
+  section h2 { margin: 0 0 12px; font-size: 16px; color: #14233c; display: flex; align-items: center; }
+  section h2 .tag { font-size: 11px; background: #eef2ff; color: #4338ca; padding: 2px 8px;
+                    border-radius: 999px; margin-left: 10px; font-weight: 400; }
+  section h3 { margin: 14px 0 8px; font-size: 13px; color: #475569; font-weight: 500; }
   .grid { display: grid; gap: 16px; }
   .grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
-  .grid.cols-2 { grid-template-columns: 1.5fr 1fr; }
-  .kpi { background: #f8fafc; border: 1px solid #e3e8ef; border-radius: 6px; padding: 12px; }
-  .kpi .label { font-size: 12px; color: #64748b; }
-  .kpi .value { font-size: 22px; font-weight: 600; margin-top: 4px; }
-  .kpi .value.up { color: #d6453a; }
-  .kpi .value.down { color: #1e9c52; }
+  .grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+  .grid.cols-5 { grid-template-columns: repeat(5, 1fr); }
+  .grid.cols-2-1 { grid-template-columns: 1.5fr 1fr; }
+  .kpi { background: #f8fafc; border: 1px solid #e3e8ef; border-radius: 6px; padding: 10px 12px; }
+  .kpi .label { font-size: 11px; color: #64748b; }
+  .kpi .label .ts { color: #94a3b8; font-weight: 400; margin-left: 6px; }
+  .kpi .value { font-size: 18px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .kpi .value small { font-size: 12px; font-weight: 500; margin-left: 4px; }
+  .up { color: #d6453a; }
+  .down { color: #1e9c52; }
   .narrative p { margin: 0 0 10px; line-height: 1.7; }
   .narrative .label { font-weight: 600; color: #14233c; margin-right: 6px; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th, td { padding: 8px 10px; border-bottom: 1px solid #eef1f5; text-align: left; }
+  th, td { padding: 7px 10px; border-bottom: 1px solid #eef1f5; text-align: left; }
   th { color: #64748b; font-weight: 500; background: #f8fafc; }
   td.num { text-align: right; font-variant-numeric: tabular-nums; }
-  td.up { color: #d6453a; }
-  td.down { color: #1e9c52; }
   .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px;
           background: #eef2ff; color: #4338ca; margin-right: 4px; }
   .badge-fallback { background: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 4px;
                     font-size: 12px; margin-left: 12px; }
   .chart { width: 100%; height: 320px; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   details { margin-top: 8px; }
   summary { cursor: pointer; color: #4338ca; }
   .similar a { color: #4338ca; text-decoration: none; margin-right: 12px; }
+  .market-tab { display: inline-block; padding: 4px 12px; background: #14233c; color: #fff;
+                border-radius: 4px; font-size: 11px; margin-right: 8px; font-weight: 500; }
 </style>
 </head>
 <body>
 <header>
-  <h1>FinAI · 今日分析 · {{ trade_date }}
+  <h1>FinAI · 全球今日分析 · {{ trade_date }}
     {% if fallback_used %}<span class="badge-fallback">部分内容由模板降级生成</span>{% endif %}
   </h1>
-  <div class="meta">生成于 {{ generated_at }} UTC · 数据源：{{ data_source if data_source else '本地快照' }}</div>
+  <div class="meta">生成于 {{ generated_at }} UTC · A 股 + {% if cross_market.us %}美股 + {% endif %}{% if cross_market.hk %}港股 + {% endif %}{% if macro %}全球宏观{% endif %}</div>
 </header>
 <main>
 
+{% if macro and (macro.indices_global or macro.fx or macro.yields or macro.commodities or macro.crypto) %}
 <section>
-  <h2>市场总览</h2>
+  <h2>全球宏观<span class="tag">每行独立时间戳</span></h2>
+
+  {% if macro.indices_global %}
+  <h3>主要指数</h3>
+  <div class="grid cols-5">
+    {% for r in macro.indices_global %}
+    <div class="kpi">
+      <div class="label">{{ r.name }} <span class="ts">{{ r.as_of[:16] }}</span></div>
+      <div class="value {% if r.pct_change >= 0 %}up{% else %}down{% endif %}">
+        {{ '%.2f' % r.value }}<small>{{ '%+.2f' % r.pct_change }}%</small>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if macro.fx %}
+  <h3>汇率</h3>
+  <div class="grid cols-4">
+    {% for r in macro.fx %}
+    <div class="kpi">
+      <div class="label">{{ r.name }} <span class="ts">{{ r.code }}</span></div>
+      <div class="value {% if r.pct_change >= 0 %}up{% elif r.pct_change < 0 %}down{% endif %}">
+        {{ '%.4f' % r.value }}{% if r.pct_change %}<small>{{ '%+.2f' % r.pct_change }}%</small>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if macro.yields %}
+  <h3>国债收益率（%）</h3>
+  <div class="grid cols-4">
+    {% for r in macro.yields %}
+    <div class="kpi">
+      <div class="label">{{ r.name }}</div>
+      <div class="value">
+        {{ '%.3f' % r.value }}<small class="{% if r.pct_change >= 0 %}up{% else %}down{% endif %}">{{ '%+.3f' % r.pct_change }}bp</small>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if macro.commodities or macro.crypto %}
+  <div class="two-col" style="margin-top: 14px;">
+    {% if macro.commodities %}
+    <div>
+      <h3>大宗商品</h3>
+      <table>
+        <thead><tr><th>品种</th><th class="num">价格</th><th class="num">涨跌幅</th><th>截至</th></tr></thead>
+        <tbody>
+        {% for r in macro.commodities %}
+        <tr>
+          <td>{{ r.name }}</td>
+          <td class="num">{{ '%.2f' % r.value }}</td>
+          <td class="num {% if r.pct_change >= 0 %}up{% else %}down{% endif %}">{{ '%+.2f' % r.pct_change }}%</td>
+          <td>{{ r.as_of[:10] }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+    {% if macro.crypto %}
+    <div>
+      <h3>加密货币</h3>
+      <table>
+        <thead><tr><th>品种</th><th class="num">价格</th><th class="num">涨跌幅</th><th>截至</th></tr></thead>
+        <tbody>
+        {% for r in macro.crypto %}
+        <tr>
+          <td>{{ r.name }}</td>
+          <td class="num">{{ '%.2f' % r.value }}</td>
+          <td class="num {% if r.pct_change >= 0 %}up{% else %}down{% endif %}">{{ '%+.2f' % r.pct_change }}%</td>
+          <td>{{ r.as_of[:16] }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+</section>
+{% endif %}
+
+<section>
+  <h2><span class="market-tab">A股</span>市场总览</h2>
   <div class="grid cols-3">
     {% for idx in market.indices %}
     <div class="kpi">
@@ -90,12 +187,12 @@
 </section>
 
 <section>
-  <h2>板块强度</h2>
+  <h2>A 股板块强度</h2>
   <div id="sectorChart" class="chart"></div>
 </section>
 
 <section>
-  <h2>异动归因（Top {{ attributions|length }}）</h2>
+  <h2><span class="market-tab">A股</span>异动归因（Top {{ attributions|length }}）</h2>
   <table>
     <thead>
       <tr>
@@ -131,8 +228,52 @@
   </table>
 </section>
 
+{% for mkt, board in cross_market.items() %}
+<section>
+  <h2>
+    <span class="market-tab">{{ '美股' if mkt == 'us' else '港股' }}</span>
+    异动榜
+    <span class="tag">{{ '截至' }} {{ board.trade_date }}</span>
+  </h2>
+  <div class="two-col">
+    <div>
+      <h3>涨幅榜 Top {{ board.gainers|length }}</h3>
+      <table>
+        <thead><tr><th>代码</th><th>名称</th><th class="num">涨跌幅</th><th class="num">成交额</th></tr></thead>
+        <tbody>
+        {% for r in board.gainers %}
+        <tr>
+          <td>{{ r.code }}</td>
+          <td>{{ r.name }}</td>
+          <td class="num up">{{ '%+.2f' % r.pct_change }}%</td>
+          <td class="num">{{ '%.2f' % (r.amount / 1e8) if r.amount else '-' }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <h3>跌幅榜 Top {{ board.losers|length }}</h3>
+      <table>
+        <thead><tr><th>代码</th><th>名称</th><th class="num">涨跌幅</th><th class="num">成交额</th></tr></thead>
+        <tbody>
+        {% for r in board.losers %}
+        <tr>
+          <td>{{ r.code }}</td>
+          <td>{{ r.name }}</td>
+          <td class="num down">{{ '%+.2f' % r.pct_change }}%</td>
+          <td class="num">{{ '%.2f' % (r.amount / 1e8) if r.amount else '-' }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endfor %}
+
 <section class="similar">
-  <h2>历史相似日</h2>
+  <h2>历史相似日（A 股板块结构）</h2>
   {% if similar_days %}
     {% for d in similar_days %}
       <a href="#" title="相似度 {{ d.similarity }}">{{ d.trade_date }} ({{ '%.3f' % d.similarity }})</a>
@@ -146,26 +287,28 @@
 
 <script>
   const sectorData = {{ sectors.heatmap|tojson }};
-  const chart = echarts.init(document.getElementById('sectorChart'));
-  chart.setOption({
-    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-    grid: { left: 90, right: 24, top: 10, bottom: 24 },
-    xAxis: { type: 'value', axisLabel: { formatter: '{value}%' } },
-    yAxis: {
-      type: 'category',
-      data: sectorData.map(d => d.sector).reverse(),
-      axisLabel: { fontSize: 12 }
-    },
-    series: [{
-      type: 'bar',
-      data: sectorData.map(d => ({
-        value: Number(d.pct_change.toFixed(2)),
-        itemStyle: { color: d.pct_change >= 0 ? '#d6453a' : '#1e9c52' }
-      })).reverse(),
-      label: { show: true, position: 'right', formatter: '{c}%' }
-    }]
-  });
-  window.addEventListener('resize', () => chart.resize());
+  if (sectorData && sectorData.length) {
+    const chart = echarts.init(document.getElementById('sectorChart'));
+    chart.setOption({
+      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+      grid: { left: 90, right: 24, top: 10, bottom: 24 },
+      xAxis: { type: 'value', axisLabel: { formatter: '{value}%' } },
+      yAxis: {
+        type: 'category',
+        data: sectorData.map(d => d.sector).reverse(),
+        axisLabel: { fontSize: 12 }
+      },
+      series: [{
+        type: 'bar',
+        data: sectorData.map(d => ({
+          value: Number(d.pct_change.toFixed(2)),
+          itemStyle: { color: d.pct_change >= 0 ? '#d6453a' : '#1e9c52' }
+        })).reverse(),
+        label: { show: true, position: 'right', formatter: '{c}%' }
+      }]
+    });
+    window.addEventListener('resize', () => chart.resize());
+  }
 </script>
 </body>
 </html>
