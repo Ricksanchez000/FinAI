@@ -37,6 +37,8 @@ class DailyReportPayload:
     fallback_used: bool
     macro: dict = field(default_factory=dict)              # global indices, fx, yields, commodities, crypto
     cross_market: dict = field(default_factory=dict)        # us / hk top movers
+    effective_dates: dict = field(default_factory=dict)     # region → ISO date of actual data
+    stale_regions: list = field(default_factory=list)       # regions whose data lags trade_date
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), ensure_ascii=False, default=str, indent=2)
@@ -47,6 +49,7 @@ def build_daily_report(
     *,
     regional: dict[str, RegionalSnapshot] | None = None,
     macro: MacroSnapshot | None = None,
+    effective_dates: dict[str, date] | None = None,
 ) -> DailyReportPayload:
     market = compute_market_overview(
         snapshot.indices, snapshot.stocks, snapshot.capital, snapshot.trade_date
@@ -78,6 +81,9 @@ def build_daily_report(
             "losers": board.losers,
         }
 
+    eff = {k: v.isoformat() for k, v in (effective_dates or {}).items()}
+    stale = [k for k, v in (effective_dates or {}).items() if v < snapshot.trade_date]
+
     return DailyReportPayload(
         trade_date=snapshot.trade_date,
         generated_at=datetime.now(timezone.utc),
@@ -90,6 +96,8 @@ def build_daily_report(
         fallback_used=attribution.fallback_used,
         macro=macro_view,
         cross_market=cross,
+        effective_dates=eff,
+        stale_regions=stale,
     )
 
 

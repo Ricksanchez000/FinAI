@@ -39,6 +39,9 @@
           background: #eef2ff; color: #4338ca; margin-right: 4px; }
   .badge-fallback { background: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 4px;
                     font-size: 12px; margin-left: 12px; }
+  .freshness { background: #fffbeb; border-left: 4px solid #f59e0b; padding: 10px 14px;
+               border-radius: 4px; margin-bottom: 16px; font-size: 13px; color: #78350f; }
+  .freshness strong { color: #92400e; }
   .chart { width: 100%; height: 320px; }
   .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   details { margin-top: 8px; }
@@ -56,6 +59,16 @@
   <div class="meta">生成于 {{ generated_at }} UTC · A 股 + {% if cross_market.us %}美股 + {% endif %}{% if cross_market.hk %}港股 + {% endif %}{% if macro %}全球宏观{% endif %}</div>
 </header>
 <main>
+
+{% if stale_regions %}
+<div class="freshness">
+  <strong>⚠ 数据回退提示：</strong>
+  以下段落的实时数据当日拉取失败（通常是非交易日或数据源限流），已回退到最近一次成功的快照：
+  {% for r in stale_regions %}
+    <code>{{ r }}</code>（{{ effective_dates[r] }}）{% if not loop.last %}、{% endif %}
+  {% endfor %}
+</div>
+{% endif %}
 
 {% if macro and (macro.indices_global or macro.fx or macro.yields or macro.commodities or macro.crypto) %}
 <section>
