@@ -58,7 +58,7 @@ def test_indices_falls_back_to_sina_when_em_throttled():
 
 def test_yields_extracts_latest_nonNan_per_series():
     """When latest row has NaN for some series (e.g. US data hasn't published),
-    pick the most recent non-NaN per column independently.
+    pick the most recent non-NaN per column independently. pct_change is in bp.
     """
     src = GlobalSource.__new__(GlobalSource)
     src.ak = MagicMock()
@@ -73,3 +73,7 @@ def test_yields_extracts_latest_nonNan_per_series():
     cn = df[df["code"] == "CN10Y"].iloc[0]
     assert us["value"] == 4.40  # backed off one day
     assert cn["value"] == 1.78  # latest
+    # 1.78 - 1.77 = 0.01 percentage points = 1 bp
+    assert abs(cn["pct_change"] - 1.0) < 1e-6
+    # 4.40 - 4.38 = 0.02 percentage points = 2 bp
+    assert abs(us["pct_change"] - 2.0) < 1e-6

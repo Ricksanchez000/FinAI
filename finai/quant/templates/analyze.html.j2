@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>FinAI · {{ run.name }}（{{ run.symbol }}）多方法分析</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<style>
+  body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+         margin: 0; background: #f5f6f8; color: #1f2733; }
+  header { background: #14233c; color: #fff; padding: 18px 32px; }
+  header h1 { margin: 0; font-size: 20px; font-weight: 600; }
+  header .meta { color: #9fb0c8; font-size: 13px; margin-top: 4px; }
+  header .price { font-size: 28px; font-weight: 600; margin-top: 8px;
+                  font-variant-numeric: tabular-nums; }
+  main { max-width: 1280px; margin: 24px auto; padding: 0 24px; }
+  section { background: #fff; border-radius: 8px; padding: 20px 24px; margin-bottom: 18px;
+            box-shadow: 0 1px 2px rgba(20,35,60,0.05); }
+  section h2 { margin: 0 0 14px; font-size: 16px; color: #14233c; }
+
+  .consensus { display: grid; grid-template-columns: 1fr 2fr; gap: 24px; align-items: center; }
+  .verdict { text-align: center; padding: 18px; border-radius: 8px; }
+  .verdict.bullish { background: #fff1f0; }
+  .verdict.bearish { background: #f0fdf4; }
+  .verdict.neutral { background: #f8fafc; }
+  .verdict .big { font-size: 28px; font-weight: 700; margin: 4px 0; }
+  .verdict.bullish .big { color: #d6453a; }
+  .verdict.bearish .big { color: #1e9c52; }
+  .verdict.neutral .big { color: #475569; }
+  .verdict .small { font-size: 12px; color: #64748b; }
+  .vote-bar { height: 28px; display: flex; border-radius: 6px; overflow: hidden;
+              font-size: 12px; color: #fff; font-weight: 500; }
+  .vote-bar > div { display: flex; align-items: center; justify-content: center;
+                    padding: 0 4px; }
+  .vote-bar .bull { background: #d6453a; }
+  .vote-bar .neut { background: #94a3b8; }
+  .vote-bar .bear { background: #1e9c52; }
+  .vote-bar .none { background: #e2e8f0; color: #475569; }
+
+  .synthesis p { margin: 0 0 8px; line-height: 1.7; }
+  .synthesis .head { font-size: 15px; font-weight: 600; color: #14233c; }
+  .synthesis .note { color: #64748b; font-size: 13px; margin-top: 8px; }
+
+  .chart { width: 100%; height: 360px; }
+
+  .grid-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+                gap: 14px; }
+  .card { border: 1px solid #e3e8ef; border-radius: 8px; padding: 14px 16px;
+          background: #fff; position: relative; }
+  .card .family { font-size: 10px; color: #475569; background: #eef2ff;
+                  padding: 2px 8px; border-radius: 999px; display: inline-block;
+                  margin-bottom: 6px; }
+  .card .name { font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #14233c; }
+  .card .summary { font-size: 13px; color: #1f2733; line-height: 1.6; }
+  .card.error { opacity: 0.55; }
+  .card.error .summary { color: #94a3b8; }
+  .card .sigtag { position: absolute; top: 14px; right: 14px;
+                  padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .card .sigtag.bullish { background: #fff1f0; color: #d6453a; }
+  .card .sigtag.bearish { background: #f0fdf4; color: #1e9c52; }
+  .card .sigtag.neutral { background: #f8fafc; color: #475569; }
+  .card .metrics { margin-top: 8px; font-size: 12px; color: #64748b;
+                   font-variant-numeric: tabular-nums; }
+
+  .disclaimer { font-size: 12px; color: #64748b; background: #fffbeb;
+                border-left: 4px solid #fbbf24; padding: 10px 14px;
+                border-radius: 4px; margin-top: 24px; line-height: 1.7; }
+</style>
+</head>
+<body>
+<header>
+  <h1>{{ run.name }} <span style="color:#9fb0c8;">{{ run.symbol }}</span></h1>
+  <div class="meta">数据截至 {{ run.as_of }} · 生成于 {{ generated_at }} · {{ run.diagnostics.n_methods }} 个方法
+    {% if fail_count %}<span style="color:#f59e0b;">（{{ fail_count }} 个失败）</span>{% endif %}
+  </div>
+  {% if run.current_price %}
+  <div class="price">¥ {{ '%.2f' % run.current_price }}</div>
+  {% endif %}
+</header>
+<main>
+
+<section>
+  <h2>多方法共识</h2>
+  <div class="consensus">
+    <div class="verdict {{ run.consensus.verdict }}">
+      <div class="small">综合方向</div>
+      <div class="big">{{ run.consensus.label }}</div>
+      <div class="small">净分 {{ '%+.2f' % run.consensus.net_score }} · 分歧度 {{ '%.2f' % run.consensus.divergence }}</div>
+    </div>
+    <div>
+      <div class="vote-bar" title="方法投票分布">
+        {% set total = run.consensus.n_methods_with_signal + run.consensus.n_no_signal %}
+        {% if run.consensus.n_bullish %}
+        <div class="bull" style="width: {{ (100 * run.consensus.n_bullish / total)|round(1) }}%">
+          偏多 {{ run.consensus.n_bullish }}
+        </div>
+        {% endif %}
+        {% if run.consensus.n_neutral %}
+        <div class="neut" style="width: {{ (100 * run.consensus.n_neutral / total)|round(1) }}%">
+          中性 {{ run.consensus.n_neutral }}
+        </div>
+        {% endif %}
+        {% if run.consensus.n_bearish %}
+        <div class="bear" style="width: {{ (100 * run.consensus.n_bearish / total)|round(1) }}%">
+          偏空 {{ run.consensus.n_bearish }}
+        </div>
+        {% endif %}
+        {% if run.consensus.n_no_signal %}
+        <div class="none" style="width: {{ (100 * run.consensus.n_no_signal / total)|round(1) }}%">
+          无方向 {{ run.consensus.n_no_signal }}
+        </div>
+        {% endif %}
+      </div>
+      <div class="synthesis" style="margin-top: 14px;">
+        <p class="head">{{ synthesis.headline }}</p>
+        <p>{{ synthesis.body }}</p>
+        {% if synthesis.divergence_note %}<p class="note">📊 {{ synthesis.divergence_note }}</p>{% endif %}
+        {% if synthesis.risk_note %}<p class="note">⚠ {{ synthesis.risk_note }}</p>{% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>K 线 · 近 180 个交易日</h2>
+  <div id="klineChart" class="chart"></div>
+</section>
+
+<section>
+  <h2>各方法结果</h2>
+  <div class="grid-cards">
+    {% for r in run.results %}
+    <div class="card {% if r.error %}error{% endif %}">
+      <span class="family">{{ r.family }}</span>
+      {% if r.signal == 'bullish' %}<span class="sigtag bullish">偏多</span>
+      {% elif r.signal == 'bearish' %}<span class="sigtag bearish">偏空</span>
+      {% elif r.signal == 'neutral' %}<span class="sigtag neutral">中性</span>
+      {% endif %}
+      <div class="name">{{ r.method_name }}</div>
+      <div class="summary">{{ r.summary }}</div>
+      {% if r.confidence is not none %}
+      <div class="metrics">
+        置信度 {{ '%.0f' % (r.confidence * 100) }}%
+        {% if r.forecast_return_pct is not none %} · 预测收益 {{ '%+.2f' % r.forecast_return_pct }}%{% endif %}
+        {% if r.deviation_pct is not none %} · 偏离 {{ '%+.2f' % r.deviation_pct }}%{% endif %}
+        {% if r.var_95_pct is not none %} · VaR {{ '%.2f' % r.var_95_pct }}%{% endif %}
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<div class="disclaimer">
+  <strong>免责声明</strong>：本页面仅展示量化方法的输出，<strong>不构成任何投资建议</strong>。
+  所有模型输出均为概率性估计，历史数据不代表未来表现。决策请结合自身风险承受能力并咨询持牌专业人士。
+  本工具不收集、不存储您的交易数据。
+</div>
+
+</main>
+
+<script>
+  const klineData = {{ kline|tojson }};
+  if (klineData && klineData.length) {
+    const dates = klineData.map(d => d.date);
+    const ohlc = klineData.map(d => [d.open, d.close, d.low, d.high]);
+    const chart = echarts.init(document.getElementById('klineChart'));
+    chart.setOption({
+      tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+      grid: { left: 60, right: 30, top: 20, bottom: 30 },
+      xAxis: { type: 'category', data: dates, scale: true, boundaryGap: false,
+               axisLabel: { fontSize: 10 } },
+      yAxis: { scale: true, splitArea: { show: true }, axisLabel: { fontSize: 10 } },
+      dataZoom: [{ type: 'inside', start: 70, end: 100 },
+                 { show: true, type: 'slider', bottom: 0, start: 70, end: 100, height: 18 }],
+      series: [{
+        type: 'candlestick', data: ohlc,
+        itemStyle: { color: '#d6453a', color0: '#1e9c52',
+                     borderColor: '#d6453a', borderColor0: '#1e9c52' }
+      }]
+    });
+    window.addEventListener('resize', () => chart.resize());
+  }
+</script>
+</body>
+</html>

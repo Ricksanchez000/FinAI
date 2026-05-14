@@ -19,7 +19,11 @@
       "Bash(taskkill //F //IM python.exe //T)",
       "Bash(FINAI_LLM_ENABLED=false python -m finai.cli run --source akshare --regions \"cn-a,global\")",
       "Bash(FINAI_LLM_ENABLED=false python -m finai.cli run --source mock --regions \"cn-a,global\")",
-      "Bash(FINAI_LLM_ENABLED=false python -m finai.cli run --source akshare --regions \"cn-a,us,hk,global\")"
+      "Bash(FINAI_LLM_ENABLED=false python -m finai.cli run --source akshare --regions \"cn-a,us,hk,global\")",
+      "Bash(python -c \"import sys,json; [print\\(r['trade_date'], '→', r['html_path']\\) for r in json.load\\(sys.stdin\\)]\")",
+      "Bash(python -m pytest tests/test_quant.py::test_uptrend_produces_mostly_bullish_signals -v)",
+      "Bash(FINAI_LLM_ENABLED=false python -m finai.cli analyze 600519 --horizon 5 --lookback 500)",
+      "Bash(FINAI_LLM_ENABLED=false python -m finai.cli analyze 000858 --horizon 5 --lookback 500)"
     ]
   }
 }

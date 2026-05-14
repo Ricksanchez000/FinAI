@@ -54,7 +54,7 @@
 <body>
 <header>
   <h1>FinAI · 全球今日分析 · {{ trade_date }}
-    {% if fallback_used %}<span class="badge-fallback">部分内容由模板降级生成</span>{% endif %}
+    {% if fallback_used %}<span class="badge-fallback" title="ANTHROPIC_API_KEY 未配置或 FINAI_LLM_ENABLED=false，AI 叙事段使用模板拼接；指数/价格等数据完全不受影响">LLM 关闭 · 叙事段为模板</span>{% endif %}
   </h1>
   <div class="meta">生成于 {{ generated_at }} UTC · A 股 + {% if cross_market.us %}美股 + {% endif %}{% if cross_market.hk %}港股 + {% endif %}{% if macro %}全球宏观{% endif %}</div>
 </header>
@@ -89,12 +89,12 @@
   {% endif %}
 
   {% if macro.fx %}
-  <h3>汇率</h3>
+  <h3>汇率 <span class="ts" style="color:#94a3b8;font-weight:400;">— 现货报价，无日内涨跌幅</span></h3>
   <div class="grid cols-4">
     {% for r in macro.fx %}
     <div class="kpi">
       <div class="label">{{ r.name }} <span class="ts">{{ r.code }}</span></div>
-      <div class="value {% if r.pct_change >= 0 %}up{% elif r.pct_change < 0 %}down{% endif %}">
+      <div class="value{% if r.pct_change > 0 %} up{% elif r.pct_change < 0 %} down{% endif %}">
         {{ '%.4f' % r.value }}{% if r.pct_change %}<small>{{ '%+.2f' % r.pct_change }}%</small>{% endif %}
       </div>
     </div>

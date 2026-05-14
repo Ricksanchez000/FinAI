@@ -75,5 +75,33 @@ def cmd_schedule() -> None:
     start()
 
 
+@cli.command("analyze")
+@click.argument("symbol")
+@click.option("--horizon", default=5, type=int, help="Forecast horizon in trading days")
+@click.option("--lookback", default=750, type=int, help="History lookback in calendar days")
+def cmd_analyze(symbol: str, horizon: int, lookback: int) -> None:
+    """Run all quant methods on a single A-share ticker and render comparison page.
+
+    Example: finai analyze 600519
+    """
+    from finai.quant.analyze_builder import build_analyze, write_analyze
+    from finai.quant.loader import load_history
+    click.echo(f"loading history for {symbol} (lookback {lookback} days)…")
+    history = load_history(symbol, lookback_days=lookback)
+    if history.bars.empty:
+        click.echo("ERROR: no history fetched (network down? bad ticker?)", err=True)
+        raise SystemExit(1)
+    click.echo(f"got {len(history.bars)} bars; running predictors…")
+    payload = build_analyze(history, horizon_days=horizon)
+    out = write_analyze(payload)
+    c = payload.run["consensus"]
+    click.echo(f"\n=== {history.name} ({history.symbol}) ===")
+    click.echo(f"verdict: {c['label']}  net {c['net_score']:+.2f}  divergence {c['divergence']:.2f}")
+    click.echo(f"votes: bull {c['n_bullish']} / neutral {c['n_neutral']} / bear {c['n_bearish']}"
+                f" / no-sig {c['n_no_signal']}")
+    click.echo(f"\n{payload.synthesis['headline']}")
+    click.echo(f"\nreport: {out}")
+
+
 if __name__ == "__main__":
     cli()
